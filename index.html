@@ -83,7 +83,8 @@ main{max-width:720px;margin:0 auto;padding:10px 14px 130px}
 .pick{background:#fff;border:2px solid var(--line);border-radius:16px;padding:16px 10px;text-align:center;font-weight:800;font-size:17px;color:var(--ink)}
 .pick small{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:2px}
 .pick.on{border-color:var(--violet);background:#F0EDFF;color:var(--violet-d)}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.card>.row2:first-child{margin-top:0}
 .lock{display:inline-block;background:var(--orange);color:var(--ink);font-size:11px;font-weight:800;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:middle}
 .line{background:#F8F7FF;border:1.5px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;position:relative}
 .line .grid3{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
@@ -303,7 +304,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimesta
 
 /* ====== RÉGLAGES ====== */
 const CONFIG = {
-  PAYPAL: "https://www.paypal.me/TON_NOM/5",   // remplace par ton vrai lien PayPal.me
+  PAYPAL: "https://www.paypal.com/ncp/payment/K2456K9SQWPNW",   // lien de paiement PayPal (5 $)
   WHATSAPP: "243979312394",
   FREE_LIMIT: 3
 };
@@ -553,7 +554,7 @@ const DOC = {
       wm:"Made with FactureVite",foot:"Made for free with FactureVite"}
 };
 function money(n){
-  try{ return new Intl.NumberFormat(S.dlang === "fr" ? "fr-FR" : "en-US", {style:"currency", currency:S.cur}).format(n); }
+  try{ return new Intl.NumberFormat(S.dlang === "fr" ? "fr-FR" : "en-US", {style:"currency", currency:S.cur, currencyDisplay:"narrowSymbol"}).format(n); }
   catch(e){ return (Math.round(n * 100) / 100) + " " + S.cur; }
 }
 function fdate(d){
@@ -578,7 +579,7 @@ function buildDoc(){
   const taxOn = (parseFloat(S.tax) || 0) > 0;
   return '<div class="fvdoc" style="width:794px;min-height:1123px;padding:56px 56px 70px;position:relative;background:#fff;color:#1A1446;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;overflow:hidden">' +
   '<style>.fvdoc table{width:100%;border-collapse:collapse}.fvdoc th{background:#4F36F0;color:#fff;text-align:left;padding:9px 10px;font-size:12px}.fvdoc td{padding:10px;border-bottom:1px solid #E4DFFA;vertical-align:top}.fvdoc .r{text-align:right;white-space:nowrap}.fvdoc th.r{text-align:right}.fvdoc tr{page-break-inside:avoid}</style>' +
-  (pro ? "" : '<div style="position:absolute;left:0;right:0;top:46%;text-align:center;font-size:54px;font-weight:700;color:rgba(79,54,240,.09);transform:rotate(-24deg);white-space:nowrap">' + esc(D.wm) + "</div>") +
+  (pro ? "" : '<div style="position:absolute;left:0;right:0;top:72%;text-align:center;font-size:54px;font-weight:700;color:rgba(79,54,240,.09);transform:rotate(-24deg);white-space:nowrap">' + esc(D.wm) + "</div>") +
   '<table style="margin-bottom:34px"><tr><td style="border:0;padding:0;width:55%">' + logo +
   '<div style="font-size:20px;font-weight:700">' + esc(S.co.name || "—") + '</div><div style="color:#6A6590;margin-top:4px">' + multi(S.co.addr) + "<br>" + esc(S.co.contact) + "</div></td>" +
   '<td style="border:0;padding:0;text-align:right"><div style="font-size:30px;font-weight:800;letter-spacing:1px;color:#D6348C">' + esc(isF ? D.FACTURE : D.DEVIS) + "</div>" +
@@ -718,6 +719,15 @@ $("#nextBtn").onclick = () => {
 };
 
 /* ====== TÉLÉCHARGEMENT ====== */
+function saveBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name; a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 async function download(){
   if(!isPro() && leftCount() <= 0){ openPaywall("limit"); return; }
   if(typeof html2pdf === "undefined"){ toast("Le module PDF n'a pas pu se charger. Vérifiez votre connexion."); return; }
@@ -728,14 +738,15 @@ async function download(){
   host.innerHTML = buildDoc();
   document.body.appendChild(host);
   try{
-    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
-    await html2pdf().set({
-      margin: 0, filename: name,
+    constname = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
+    const blob = await html2pdf().set({
+      margin: 0,
       image: {type:"jpeg", quality:0.95},
       html2canvas: {scale:2, useCORS:true, backgroundColor:"#ffffff"},
       jsPDF: {unit:"mm", format:"a4", orientation:"portrait"},
       pagebreak: {mode:["css", "legacy"]}
-    }).from(host.firstElementChild).save();
+    }).from(host.firstElementChild).outputPdf("blob");
+    saveBlob(blob, name);
     if(!isPro()){
       const c = usedCount() + 1;
       profile = Object.assign({}, profile, {usage:{month:monthKey(), count:c}});
