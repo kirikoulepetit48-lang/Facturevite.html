@@ -292,15 +292,21 @@ main{max-width:720px;margin:0 auto;padding:10px 14px 130px}
 
 <div class="toast" id="toast" role="status"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+/* fvWatchdog : si le chargement dure trop longtemps, on explique et on propose de réessayer */
+setTimeout(function(){
+  var l = document.getElementById("loading");
+  if(!l || l.hidden) return;
+  var msg = window.__fvStarted
+    ? "Votre connexion est lente. Patientez encore un peu ou réessayez."
+    : "Les composants de connexion n'ont pas pu se charger. Vérifiez votre connexion internet.";
+  l.innerHTML = '<div style="text-align:center;padding:24px;max-width:340px;font-weight:600;color:#1A1446">' +
+    '<p style="margin:0 0 16px;line-height:1.4">' + msg + '</p>' +
+    '<button onclick="location.reload()" style="border:0;border-radius:14px;padding:14px 22px;font-weight:800;font-size:16px;color:#fff;background:linear-gradient(135deg,#4F36F0,#D6348C)">Réessayer</button></div>';
+}, 25000);
+</script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp,
-  collection, addDoc, getDocs, query, orderBy }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+window.__fvStarted = true;
 
 /* ====== RÉGLAGES ====== */
 const CONFIG = {
@@ -316,10 +322,46 @@ const firebaseConfig = {
   messagingSenderId: "950608326816",
   appId: "1:950608326816:web:343d02d07341b6b8be19c5"
 };
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-auth.languageCode = "fr";
-const db = getFirestore(app);
+/* Firebase est chargé seulement quand on en a besoin (connexion lente = site plus rapide) */
+let auth, db, doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, query, orderBy,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
+    sendPasswordResetEmail, signOut;
+let fbPromise = null;
+function loadFB(){
+  if(fbPromise) return fbPromise;
+  const V = "https://www.gstatic.com/firebasejs/10.12.2/";
+  fbPromise = (async () => {
+    const [A, Au, F] = await Promise.all([
+      import(V + "firebase-app.js"),
+      import(V + "firebase-auth.js"),
+      import(V + "firebase-firestore.js")
+    ]);
+    const app = A.initializeApp(firebaseConfig);
+    auth = Au.getAuth(app);
+    auth.languageCode = "fr";
+    db = F.getFirestore(app);
+    ({createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
+    ({doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, query, orderBy} = F);
+    Au.onAuthStateChanged(auth, onAuth);
+  })();
+  fbPromise.catch(() => { fbPromise = null; });
+  return fbPromise;
+}
+
+/* La librairie PDF est chargée seulement quand on en a besoin */
+let pdfPromise = null;
+function loadPdfLib(){
+  if(typeof html2pdf !== "undefined") return Promise.resolve();
+  if(pdfPromise) return pdfPromise;
+  pdfPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+    sc.onload = resolve;
+    sc.onerror = () => { pdfPromise = null; reject(new Error("pdf-lib")); };
+    document.head.appendChild(sc);
+  });
+  return pdfPromise;
+}
 
 /* ====== OUTILS ====== */
 const $ = s => document.querySelector(s);
@@ -338,8 +380,9 @@ function toast(msg){
 }
 function authMessage(e){
   const c = (e && e.code) || "";
+  if(!c) return "Le service de connexion n'a pas pu se charger (connexion lente). Réessayez.";
   if(c === "auth/email-already-in-use") return "Cet e-mail est déjà inscrit. Touchez « Connexion ».";
-  if(["auth/invalid-credential"].includes(c)) return "E-mail ou mot de passe incorrect.";
+  if(["auth/invalid-credential","auth/wrong-password","auth/user-not-found","auth/invalid-login-credentials"].includes(c)) return "E-mail ou mot de passe incorrect.";
   if(c === "auth/weak-password") return "Mot de passe trop court : 6 caractères minimum.";
   if(c === "auth/invalid-email") return "Cette adresse e-mail n'est pas valide.";
   if(c === "auth/missing-password") return "Entrez votre mot de passe.";
@@ -384,7 +427,9 @@ const usedCount = () => (profile && profile.usage && profile.usage.month === mon
 const leftCount = () => Math.max(0, CONFIG.FREE_LIMIT - usedCount());
 
 /* ====== ÉCRANS ====== */
+let currentScreen = "";
 function show(name){
+  currentScreen = name;
   ["welcome","auth","app"].forEach(id => { $("#" + id).hidden = (id !== name); });
   $("#loading").hidden = true;
   window.scrollTo(0, 0);
@@ -421,6 +466,7 @@ $("#authForm").addEventListener("submit", async e => {
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = "Patientez…";
   try{
+    await loadFB();
     if(authMode === "signup") await createUserWithEmailAndPassword(auth, email, pw);
     else await signInWithEmailAndPassword(auth, email, pw);
   }catch(err){
@@ -431,6 +477,11 @@ $("#authForm").addEventListener("submit", async e => {
 });
 $("#googleBtn").onclick = async () => {
   $("#authErr").textContent = "";
+  if(!auth){
+    $("#authErr").textContent = "Chargement du service… Patientez quelques secondes puis touchez de nouveau.";
+    loadFB().catch(() => { $("#authErr").textContent = "Connexion trop lente. Réessayez."; });
+    return;
+  }
   try{ await signInWithPopup(auth, new GoogleAuthProvider()); }
   catch(err){ $("#authErr").textContent = authMessage(err); }
 };
@@ -438,6 +489,7 @@ $("#forgotBtn").onclick = async () => {
   const email = $("#aEmail").value.trim();
   if(!email){ $("#authErr").textContent = "Entrez d'abord votre e-mail ci-dessus."; return; }
   try{
+    await loadFB();
     await sendPasswordResetEmail(auth, email);
     toast("E-mail envoyé. Vérifiez aussi vos courriers indésirables.");
   }catch(err){ $("#authErr").textContent = authMessage(err); }
@@ -469,14 +521,16 @@ function watchProfile(user){
     if(isPro()) loadClients();
   }, err => console.error(err));
 }
-onAuthStateChanged(auth, async user => {
+async function onAuth(user){
   U = user;
   if(!user){
     if(unsubProfile){ unsubProfile(); unsubProfile = null; }
     profile = null; clients = [];
-    show("welcome");
+    LS.set("fv_hint", false);
+    if(currentScreen === "app" || currentScreen === "") show("welcome");
     return;
   }
+  LS.set("fv_hint", true);
   loadState(user.uid);
   step = 1;
   await ensureProfile(user);
@@ -484,7 +538,7 @@ onAuthStateChanged(auth, async user => {
   bindFromState();
   renderAll();
   show("app");
-});
+}
 
 /* ====== RENDU ====== */
 const STEPS = ["Vous", "Client", "Lignes", "Aperçu"];
@@ -714,7 +768,7 @@ $("#prevBtn").onclick = () => { if(step > 1){ step--; renderSteps(); } };
 $("#nextBtn").onclick = () => {
   const err = validate(step);
   if(err){ $("#stepErr").textContent = err; return; }
-  if(step < 4){ step++; renderSteps(); if(step === 2 && isPro()) loadClients(); }
+  if(step < 4){ step++; renderSteps(); if(step === 2){ loadPdfLib().catch(() => {}); if(isPro()) loadClients(); } }
   else download();
 };
 
@@ -730,14 +784,24 @@ function saveBlob(blob, name){
 }
 async function download(){
   if(!isPro() && leftCount() <= 0){ openPaywall("limit"); return; }
-  if(typeof html2pdf === "undefined"){ toast("Le module PDF n'a pas pu se charger. Vérifiez votre connexion."); return; }
   const btn = $("#nextBtn"), label = btn.textContent;
   btn.disabled = true; btn.textContent = "Création du PDF…";
+  if(typeof html2pdf === "undefined"){
+    btn.textContent = "Chargement du module PDF…";
+    try{ await loadPdfLib(); }
+    catch(e){
+      toast("Le module PDF n'a pas pu se charger. Vérifiez votre connexion et réessayez.");
+      btn.disabled = false; btn.textContent = label;
+      return;
+    }
+    btn.textContent = "Création du PDF…";
+  }
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;background:#fff";
   host.innerHTML = buildDoc();
   document.body.appendChild(host);
-  try{").replace(/[^\w-]+/g, "_") + ".pdf";
+  try{
+    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
     const opt = {
       margin: 0,
       image: {type:"jpeg", quality:0.95},
@@ -775,7 +839,16 @@ async function download(){
     host.remove(); btn.disabled = false; btn.textContent = label;
   }
 }
+
+/* ====== DÉMARRAGE ====== */
+$("#startBtn").addEventListener("click", () => { loadFB().catch(() => {}); });
+$("#haveAcc").addEventListener("click", () => { loadFB().catch(() => {}); });
+if(LS.get("fv_hint", false)){
+  loadFB().catch(() => {});   /* retour d'un utilisateur déjà connecté : on rétablit sa session */
+}else{
+  show("welcome");            /* nouvel utilisateur : accueil immédiat, Firebase se charge en arrière-plan */
+  window.addEventListener("load", () => setTimeout(() => loadFB().catch(() => {}), 2500));
+}
 </script>
 </body>
 </html>
-    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document
