@@ -339,7 +339,7 @@ function toast(msg){
 function authMessage(e){
   const c = (e && e.code) || "";
   if(c === "auth/email-already-in-use") return "Cet e-mail est déjà inscrit. Touchez « Connexion ».";
-  if(["auth/invalid-credential","auth/wrong-password","auth/user-not-found","auth/invalid-login-credentials"].includes(c)) return "E-mail ou mot de passe incorrect.";
+  if(["auth/invalid-credential"].includes(c)) return "E-mail ou mot de passe incorrect.";
   if(c === "auth/weak-password") return "Mot de passe trop court : 6 caractères minimum.";
   if(c === "auth/invalid-email") return "Cette adresse e-mail n'est pas valide.";
   if(c === "auth/missing-password") return "Entrez votre mot de passe.";
@@ -738,15 +738,25 @@ async function download(){
   host.innerHTML = buildDoc();
   document.body.appendChild(host);
   try{
-    constname = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
-    const blob = await html2pdf().set({
+    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
+    const opt = {
       margin: 0,
       image: {type:"jpeg", quality:0.95},
       html2canvas: {scale:2, useCORS:true, backgroundColor:"#ffffff"},
       jsPDF: {unit:"mm", format:"a4", orientation:"portrait"},
       pagebreak: {mode:["css", "legacy"]}
-    }).from(host.firstElementChild).outputPdf("blob");
-    saveBlob(blob, name);
+    };
+    let saved = false;
+    try{
+      const blob = await html2pdf().set(opt).from(host.firstElementChild).outputPdf("blob");
+      saveBlob(blob, name);
+      saved = true;
+    }catch(e1){
+      console.error("Téléchargement nommé impossible, repli :", e1);
+    }
+    if(!saved){
+      await html2pdf().set(Object.assign({filename: name}, opt)).from(host.firstElementChild).save();
+    }
     if(!isPro()){
       const c = usedCount() + 1;
       profile = Object.assign({}, profile, {usage:{month:monthKey(), count:c}});
@@ -761,7 +771,7 @@ async function download(){
     toast("PDF téléchargé.");
   }catch(e){
     console.error(e);
-    toast("Impossible de créer le PDF. Réessayez.");
+    toast("Impossible de créer le PDF : " + ((e && e.message) ? e.message : String(e)));
   }finally{
     host.remove(); btn.disabled = false; btn.textContent = label;
   }
