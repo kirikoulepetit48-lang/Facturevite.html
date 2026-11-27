@@ -77,7 +77,7 @@ label:first-child{margin-top:0}
 .stp.on b{background:var(--grad);color:#fff}
 .stp.on{color:var(--ink)}
 .stp.done b{background:var(--mint);color:#fff}
-main{max-width:720px;margin:0 auto;padding:10px 14px 130px}
+main{max-width:720px;margin:0 auto;padding:10px 14px 220px}
 .step h2{margin:6px 0 14px;font-size:22px}
 .cards2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .pick{background:#fff;border:2px solid var(--line);border-radius:16px;padding:16px 10px;text-align:center;font-weight:800;font-size:17px;color:var(--ink)}
@@ -91,19 +91,19 @@ main{max-width:720px;margin:0 auto;padding:10px 14px 130px}
 .line .x{position:absolute;right:6px;top:6px;width:34px;height:34px;border:0;background:#fff;border-radius:50%;color:var(--danger);font-size:20px}
 .line input[data-k="d"]{padding-right:44px}
 .small{font-size:13px;color:var(--muted)}
-.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;z-index:20;box-shadow:0 -6px 20px rgba(26,20,70,.08)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 14px 84px;display:flex;gap:10px;z-index:20;box-shadow:0 -6px 20px rgba(26,20,70,.08)}
 .bar .btn{flex:1}
 .bar .btn-soft{flex:0 0 36%}
 #pvwrap{background:#D9D3F3;border-radius:14px;overflow:hidden;position:relative}
 #pv{width:794px;background:#fff}
 .ov{position:fixed;inset:0;background:rgba(26,20,70,.62);display:none;align-items:flex-end;justify-content:center;padding:0;z-index:50}
 .ov.open{display:flex}
-.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:22px 20px 28px}
+.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:520px;max-height:92vh;overflow:auto;padding:22px 20px 96px}
 .sheet h2{margin:0 0 8px;font-size:23px}
 .price{font-size:32px;font-weight:800;color:var(--violet-d);margin:6px 0}
 .sheet ul{padding-left:20px;margin:8px 0 14px}
 .sheet .btn{display:block;text-align:center;text-decoration:none;margin-top:10px}
-.toast{position:fixed;left:14px;right:14px;bottom:92px;background:var(--ink);color:#fff;border-radius:12px;padding:13px 16px;font-weight:600;z-index:80;display:none;max-width:520px;margin:0 auto}
+.toast{position:fixed;left:14px;right:14px;bottom:190px;background:var(--ink);color:#fff;border-radius:12px;padding:13px 16px;font-weight:600;z-index:80;display:none;max-width:520px;margin:0 auto}
 .toast.show{display:block}
 .loading{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:90;font-weight:700;color:var(--violet-d)}
 @media (min-width:760px){.hero h1{font-size:44px}.sheet{border-radius:22px;margin:auto}.ov{align-items:center;padding:16px}}
@@ -340,7 +340,7 @@ function loadFB(){
     auth = Au.getAuth(app);
     auth.languageCode = "fr";
     db = F.getFirestore(app);
-    ({createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
+    ({createUserWithEmailAndPassword, signInWithEmailandPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
     ({doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, query, orderBy} = F);
     Au.onAuthStateChanged(auth, onAuth);
   })();
