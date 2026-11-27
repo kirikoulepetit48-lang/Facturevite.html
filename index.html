@@ -577,7 +577,7 @@ function buildDoc(){
   }).join("");
   const logo = pro && S.co.logo ? '<img src="' + S.co.logo + '" style="max-height:70px;max-width:200px;display:block;margin-bottom:10px">' : "";
   const taxOn = (parseFloat(S.tax) || 0) > 0;
-  return '<div class="fvdoc" style="width:794px;min-height:1123px;padding:56px 56px 70px;position:relative;background:#fff;color:#1A1446;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;overflow:hidden">' +
+  return '<div class="fvdoc" style="width:794px;min-height:1116px;padding:56px 56px 70px;position:relative;background:#fff;color:#1A1446;font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;overflow:hidden">' +
   '<style>.fvdoc table{width:100%;border-collapse:collapse}.fvdoc th{background:#4F36F0;color:#fff;text-align:left;padding:9px 10px;font-size:12px}.fvdoc td{padding:10px;border-bottom:1px solid #E4DFFA;vertical-align:top}.fvdoc .r{text-align:right;white-space:nowrap}.fvdoc th.r{text-align:right}.fvdoc tr{page-break-inside:avoid}</style>' +
   (pro ? "" : '<div style="position:absolute;left:0;right:0;top:72%;text-align:center;font-size:54px;font-weight:700;color:rgba(79,54,240,.09);transform:rotate(-24deg);white-space:nowrap">' + esc(D.wm) + "</div>") +
   '<table style="margin-bottom:34px"><tr><td style="border:0;padding:0;width:55%">' + logo +
@@ -737,8 +737,7 @@ async function download(){
   host.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;background:#fff";
   host.innerHTML = buildDoc();
   document.body.appendChild(host);
-  try{
-    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document").replace(/[^\w-]+/g, "_") + ".pdf";
+  try{").replace(/[^\w-]+/g, "_") + ".pdf";
     const opt = {
       margin: 0,
       image: {type:"jpeg", quality:0.95},
@@ -779,3 +778,4 @@ async function download(){
 </script>
 </body>
 </html>
+    const name = (S.type === "facture" ? "facture-" : "devis-") + (S.num || "document
