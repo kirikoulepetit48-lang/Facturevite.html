@@ -340,7 +340,7 @@ function loadFB(){
     auth = Au.getAuth(app);
     auth.languageCode = "fr";
     db = F.getFirestore(app);
-    ({createUserWithEmailAndPassword, signInWithEmailandPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
+    ({createUserWithEmailAndPassword, signInWithEmailandPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
     ({doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, query, orderBy} = F);
     Au.onAuthStateChanged(auth, onAuth);
   })();
