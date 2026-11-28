@@ -340,7 +340,7 @@ function loadFB(){
     auth = Au.getAuth(app);
     auth.languageCode = "fr";
     db = F.getFirestore(app);
-    ({createUserWithEmailAndPassword, signInWithEmailandPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
+    ({createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, signOut} = Au);
     ({doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, query, orderBy} = F);
     Au.onAuthStateChanged(auth, onAuth);
   })();
@@ -514,27 +514,52 @@ async function ensureProfile(user){
 }
 function watchProfile(user){
   if(unsubProfile) unsubProfile();
-  profile = {pro:false, usage:{month:monthKey(), count:0}};
+  profile = LS.get("fv_prof_" + user.uid, null) || {pro:false, usage:{month:monthKey(), count:0}};
   unsubProfile = onSnapshot(doc(db, "users", user.uid), snap => {
-    if(snap.exists()) profile = snap.data();
+    if(snap.exists()){
+      profile = snap.data();
+      LS.set("fv_prof_" + user.uid, {pro: profile.pro === true, usage: profile.usage || null});
+    }
     renderStatus(); renderLocks(); renderPreview();
     if(isPro()) loadClients();
   }, err => console.error(err));
 }
+let cachedShown = false;   /* l'appli a déjà été affichée à partir de la mémoire du téléphone */
 async function onAuth(user){
-  U = user;
   if(!user){
     if(unsubProfile){ unsubProfile(); unsubProfile = null; }
-    profile = null; clients = [];
-    LS.set("fv_hint", false);
+    U = null; profile = null; clients = []; cachedShown = false;
+    LS.set("fv_hint", null);
     if(currentScreen === "app" || currentScreen === "") show("welcome");
     return;
   }
-  LS.set("fv_hint", true);
+  LS.set("fv_hint", {uid:user.uid, email:user.email || "", name:user.displayName || ""});
+  const already = cachedShown && U && U.uid === user.uid;
+  cachedShown = false;
+  U = user;
+  if(already){
+    /* L'écran est déjà affiché : on ne le réinitialise pas, on branche seulement le compte */
+    watchProfile(user);
+    renderStatus();
+    ensureProfile(user);
+    return;
+  }
   loadState(user.uid);
   step = 1;
-  await ensureProfile(user);
   watchProfile(user);
+  bindFromState();
+  renderAll();
+  show("app");
+  ensureProfile(user);       /* en arrière-plan : n'empêche plus l'affichage */
+}
+
+/* Démarrage instantané d'un utilisateur déjà connecté (sans attendre Firebase) */
+function startFromCache(h){
+  U = {uid:h.uid, email:h.email || "", displayName:h.name || ""};
+  cachedShown = true;
+  loadState(h.uid);
+  step = 1;
+  profile = LS.get("fv_prof_" + h.uid, null) || {pro:false, usage:{month:monthKey(), count:0}};
   bindFromState();
   renderAll();
   show("app");
@@ -712,7 +737,7 @@ $("#avatarBtn").onclick = openAccount;
 $("#acClose").onclick = () => $("#account").classList.remove("open");
 $("#account").addEventListener("click", e => { if(e.target.id === "account") $("#account").classList.remove("open"); });
 $("#acUnlock").onclick = () => { $("#account").classList.remove("open"); openPaywall("feature"); };
-$("#acLogout").onclick = async () => { $("#account").classList.remove("open"); await signOut(auth); };
+$("#acLogout").onclick = async () => { $("#account").classList.remove("open"); try{ await loadFB(); await signOut(auth); }catch(e){ toast("Déconnexion impossible : connexion trop lente. Réessayez."); } };
 
 /* ====== SAISIE ====== */
 document.addEventListener("input", e => {
@@ -843,8 +868,10 @@ async function download(){
 /* ====== DÉMARRAGE ====== */
 $("#startBtn").addEventListener("click", () => { loadFB().catch(() => {}); });
 $("#haveAcc").addEventListener("click", () => { loadFB().catch(() => {}); });
-if(LS.get("fv_hint", false)){
-  loadFB().catch(() => {});   /* retour d'un utilisateur déjà connecté : on rétablit sa session */
+const savedHint = LS.get("fv_hint", null);
+if(savedHint && savedHint.uid){
+  startFromCache(savedHint);  /* retour d'un utilisateur connecté : appli immédiate */
+  loadFB().catch(() => {});   /* Firebase confirme la session en arrière-plan */
 }else{
   show("welcome");            /* nouvel utilisateur : accueil immédiat, Firebase se charge en arrière-plan */
   window.addEventListener("load", () => setTimeout(() => loadFB().catch(() => {}), 2500));
